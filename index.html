@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Phone Number Verification</title>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+  />
+  <link
+    href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      max-width: 600px;
+      background-color: #fff;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      color: #007bff;
+      font-size: 2.2rem;
+    }
+
+    .form-group input {
+      font-size: 1.2rem;
+      padding: 10px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.2rem;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 20px;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      background-color: #f8f9fa;
+    }
+
+    .result-title {
+      font-size: 1.5rem;
+      color: #007bff;
+      margin-bottom: 20px;
+    }
+
+    .info-icon {
+      font-size: 0.9rem;
+      color: #007bff;
+      cursor: pointer;
+      margin-left: 5px;
+    }
+
+    .premium-content {
+      filter: blur(5px);
+    }
+
+    .paywall {
+      color: #007bff;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+    }
+
+    .alert-info {
+      margin-bottom: 20px;
+      font-size: 1rem;
+      text-align: left;
+      background-color: #e9f7fc;
+      border-color: #007bff;
+    }
+
+    @media (max-width: 576px) {
+      .container {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container text-center">
+    <h1 class="mb-4">Phone Number Verification</h1>
+
+    <!-- Info Box -->
+    <div class="alert alert-info" role="alert">
+      <strong>How does it work?</strong><br>
+      We gather information from many trusted sources to:
+      <ul>
+        <li>Check if the number is on spam or blacklist databases.</li>
+        <li>Analyze if the number is valid and review its history.</li>
+        <li>Identify any risky activity linked to the number.</li>
+      </ul>
+      We're always improving this tool to give you the best information.<br>
+      <strong>Stay tuned for updates!</strong>
+    </div>
+
+    <form id="verifyForm">
+      <div class="form-group">
+        <input
+          type="tel"
+          id="phoneNumber"
+          class="form-control"
+          placeholder="Enter US Phone Number"
+          pattern="^\+?1?\d{10,15}$"
+          required
+          autofocus
+        />      
+      </div>
+      <button type="submit" class="btn btn-primary">Verify</button>
+    </form>
+
+    <div id="loading" class="mt-4" style="display: none;">
+      <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div id="result" class="result-section"></div>
+  </div>
+
+  <!-- Full jQuery and Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"
+  ></script>
+
+  <script>
+    $(function () {
+      $('[data-toggle="tooltip"]').tooltip(); // Initialize Bootstrap tooltips globally
+    });
+
+    const form = document.getElementById('verifyForm');
+    const loadingDiv = document.getElementById('loading');
+    const resultDiv = document.getElementById('result');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const number = document.getElementById('phoneNumber').value.trim();
+      if (!number) {
+        alert('Please enter a phone number.');
+        return;
+      }
+
+      resultDiv.innerHTML = '';
+      loadingDiv.style.display = 'block';
+
+      try {
+        const response = await fetch('http://localhost:5001/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ number }),
+        });
+
+        const data = await response.json();
+        loadingDiv.style.display = 'none';
+
+        if (response.ok) {
+          displayResult(data);
+        } else {
+          resultDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        loadingDiv.style.display = 'none';
+        resultDiv.innerHTML = `<div class="alert alert-danger">An error occurred. Please try again later.</div>`;
+      }
+    });
+
+    function displayResult(data) {
+      resultDiv.innerHTML = `
+        <div class="result-title">Verification Results</div>
+        <p><strong>Phone Number:</strong> ${data.phoneNumber}</p>
+        <p><strong>Carrier(s):</strong> ${data.carriers.join(', ')} 
+          <i class="fas fa-info-circle info-icon" data-toggle="tooltip" data-placement="top" title="The carrier is the network provider associated with this number."></i>
+        </p>
+        <p><strong>Spam Risk:</strong> ${formatRiskLevel(data.spamRisk)} 
+          <i class="fas fa-info-circle info-icon" data-toggle="tooltip" data-placement="top" title="Spam risk identifies if the number is likely to be used for spam."></i>
+        </p>
+        <p><strong>Blocked:</strong> ${data.blocked ? 'Yes' : 'No'} 
+          <i class="fas fa-info-circle info-icon" data-toggle="tooltip" data-placement="top" title="Indicates if the number has been flagged as blocked in any databases."></i>
+        </p>
+        <p><strong>Location:</strong> ${data.location} 
+          <i class="fas fa-info-circle info-icon" data-toggle="tooltip" data-placement="top" title="The approximate geographical location of the phone number."></i>
+        </p>
+        <p><strong>Type of Line:</strong> ${formatLineType(data.lineType)} 
+          <i class="fas fa-info-circle info-icon" data-toggle="tooltip" data-placement="top" title="Indicates whether the number is a mobile, landline, or other type of phone."></i>
+        </p>
+      `;
+
+      // Reinitialize tooltips after rendering new content
+      $(function () {
+        $('[data-toggle="tooltip"]').tooltip();
+      });
+
+      const premiumContent = document.createElement('div');
+      premiumContent.classList.add('premium-content');
+      premiumContent.innerHTML = `
+        <h4>Premium Report</h4>
+        <p><strong>Additional Data:</strong> Detailed analysis and historical data.</p>
+      `;
+      resultDiv.appendChild(premiumContent);
+
+      const unlockPrompt = document.createElement('p');
+      unlockPrompt.innerHTML = `<span class="paywall">Upgrade to Premium</span> to view the full report.`;
+      resultDiv.appendChild(unlockPrompt);
+
+      unlockPrompt.addEventListener('click', () => {
+        premiumContent.classList.remove('premium-content');
+        unlockPrompt.style.display = 'none';
+      });
+    }
+
+    function formatRiskLevel(risk) {
+      if (risk === 'high') {
+        return '<span class="text-danger font-weight-bold"><i class="fas fa-exclamation-triangle"></i> High</span>';
+      } else {
+        return '<span class="text-success font-weight-bold"><i class="fas fa-check-circle"></i> Low</span>';
+      }
+    }
+
+    function formatLineType(type) {
+      if (type) {
+        return type.charAt(0).toUpperCase() + type.slice(1);
+      } else {
+        return 'Unknown';
+      }
+    }
+  </script>
+</body>
+</html>
